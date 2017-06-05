@@ -7,6 +7,7 @@ from . import ndarray, gpu_op
 
 class Node(object):
     """Node in a computation graph."""
+
     def __init__(self):
         """Constructor, new node is indirectly created by Op object call method.
 
@@ -64,6 +65,7 @@ def Variable(name):
 
 class Op(object):
     """Op represents operations performed on nodes."""
+
     def __call__(self):
         """Create a new node and associate the op object with the node.
 
@@ -153,6 +155,9 @@ class AddOp(Op):
     def infer_shape(self, node, input_shapes):
         """Need to handle input_vals[0].shape != input_vals[1].shape"""
         """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        assert input_shapes[0] == input_shapes[1]
+        return input_shapes[0]
 
 
 class AddByConstOp(Op):
@@ -176,6 +181,8 @@ class AddByConstOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class MulOp(Op):
@@ -209,6 +216,24 @@ class MulOp(Op):
     def infer_shape(self, node, input_shapes):
         """Need to handle input_vals[0].shape != input_vals[1].shape"""
         """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        # if input_shapes[0] == input_shapes[1]:
+        #     return input_shapes[0]
+        # elif input_shapes[0] == (1,):
+        #     return input_shapes[1]
+        # elif input_shapes[1] == (1,):
+        #     return input_shapes[0]
+        # else:
+        #     raise RuntimeError('invalid dimensions')
+
+        if input_shapes[0] == input_shapes[1]:
+            return input_shapes[0]
+        elif input_shapes[0] == (1,):
+            return input_shapes[1]
+        elif input_shapes[1] == (1,):
+            return input_shapes[0]
+        else:
+            print('shape error')
 
 
 class MulByConstOp(Op):
@@ -232,6 +257,8 @@ class MulByConstOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class MatMulOp(Op):
@@ -250,15 +277,15 @@ class MatMulOp(Op):
                     (node.matmul_attr_trans_B is False)):
                 output_val[:] = np.matmul(input_vals[0], input_vals[1])
             elif ((node.matmul_attr_trans_A is True) and
-                    (node.matmul_attr_trans_B is False)):
+                      (node.matmul_attr_trans_B is False)):
                 output_val[:] = np.matmul(
                     np.transpose(input_vals[0]), input_vals[1])
             elif ((node.matmul_attr_trans_A is False) and
-                    (node.matmul_attr_trans_B is True)):
+                      (node.matmul_attr_trans_B is True)):
                 output_val[:] = np.matmul(
                     input_vals[0], np.transpose(input_vals[1]))
             elif ((node.matmul_attr_trans_A is True) and
-                    (node.matmul_attr_trans_B is True)):
+                      (node.matmul_attr_trans_B is True)):
                 output_val[:] = np.matmul(
                     np.transpose(input_vals[0]), np.transpose(input_vals[1]))
         else:
@@ -276,21 +303,21 @@ class MatMulOp(Op):
             rhs_grad = matmul_op(
                 node.inputs[0], output_grad, trans_A=True, trans_B=False)
         elif ((node.matmul_attr_trans_A is True) and
-                (node.matmul_attr_trans_B is False)):
+                  (node.matmul_attr_trans_B is False)):
             # if Y=A^T B, then dA=(dY B^T)^T=B dY^T, dB=A^T dY
             lhs_grad = matmul_op(
                 node.inputs[1], output_grad, trans_A=False, trans_B=True)
             rhs_grad = matmul_op(
                 node.inputs[0], output_grad, trans_A=True, trans_B=False)
         elif ((node.matmul_attr_trans_A is False) and
-                (node.matmul_attr_trans_B is True)):
+                  (node.matmul_attr_trans_B is True)):
             # if Y=A B^T, then dA=dY B^T, dB=(A^T dY)^T=dY^T A
             lhs_grad = matmul_op(
                 output_grad, node.inputs[1], trans_A=False, trans_B=True)
             rhs_grad = matmul_op(
                 output_grad, node.inputs[0], trans_A=True, trans_B=False)
         elif ((node.matmul_attr_trans_A is True) and
-                (node.matmul_attr_trans_B is True)):
+                  (node.matmul_attr_trans_B is True)):
             # if Y=A^T B^T, then dA=(dY B^T)^T=B dY^T, dB=(A^T dY)^T=dY^T A
             lhs_grad = matmul_op(
                 node.inputs[1], output_grad, trans_A=False, trans_B=True)
@@ -300,6 +327,28 @@ class MatMulOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        # assert len(input_shapes) == 2
+        # A_rows, A_cols = input_shapes[0]
+        # if node.matmul_attr_trans_A:
+        #     A_rows, A_cols = A_cols, A_rows
+        #
+        # B_rows, B_cols = input_shapes[0]
+        # if node.matmul_attr_trans_B:
+        #     B_rows, B_cols = B_cols, B_rows
+        #
+        # assert A_cols == B_rows
+        # return (A_rows, B_cols)
+
+        assert len(input_shapes) == 2
+        (row_A, col_A) = input_shapes[0]
+        if node.matmul_attr_trans_A:
+            row_A, col_A = col_A, row_A
+        (row_B, col_B) = input_shapes[1]
+        if node.matmul_attr_trans_B:
+            row_B, col_B = col_B, row_B
+
+        assert col_A == row_B
+        return (row_A, col_B)
 
 
 class PlaceholderOp(Op):
@@ -339,6 +388,11 @@ class ZerosLikeOp(Op):
     def infer_shape(self, node, input_shapes):
         """If input_shape is a vector, simpler to return (1,)"""
         """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        if input_shapes[0] == 1:
+            return (1,)
+        else:
+            return input_shapes[0]
 
 
 class OnesLikeOp(Op):
@@ -362,6 +416,11 @@ class OnesLikeOp(Op):
     def infer_shape(self, node, input_shapes):
         """If input_shape is a vector, simpler to return (1,)"""
         """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        if input_shapes[0] == 1:
+            return (1,)
+        else:
+            return input_shapes[0]
 
 
 class ReduceSumAxisZeroOp(Op):
@@ -377,7 +436,7 @@ class ReduceSumAxisZeroOp(Op):
     def compute(self, node, input_vals, output_val, use_numpy=True):
         assert len(input_vals) == 1
         if use_numpy:
-            assert(isinstance(input_vals[0], np.ndarray))
+            assert (isinstance(input_vals[0], np.ndarray))
             output_val[:] = np.sum(input_vals[0], axis=0)
         else:
             gpu_op.reduce_sum_axis_zero(input_vals[0], output_val)
@@ -391,6 +450,18 @@ class ReduceSumAxisZeroOp(Op):
         for vector, simpler to do (3,)->(1,)
         """
         """TODO: Your code here"""
+        # assert len(input_shapes) == 1
+        # if len(input_shapes[0]) == 1:
+        #     return (1,)
+        # else:
+        #     return input_shapes[0][1:]
+
+        assert len(input_shapes) == 1
+        if len(input_shapes[0]) == 1:
+            return (1,)
+        else:
+            return tuple(input_shapes[0][i]
+                         for i in range(1, len(input_shapes[0])))
 
 
 class BroadcastToOp(Op):
@@ -404,7 +475,7 @@ class BroadcastToOp(Op):
         return new_node
 
     def compute(self, node, input_vals, output_val, use_numpy=True):
-        assert(len(input_vals)==2)
+        assert (len(input_vals) == 2)
         if use_numpy:
             output_val[:] = np.broadcast_to(input_vals[0], input_vals[1].shape)
         else:
@@ -417,6 +488,8 @@ class BroadcastToOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        return input_shapes[1]
 
 
 def softmax_func(y):
@@ -447,12 +520,14 @@ class SoftmaxCrossEntropyOp(Op):
             gpu_op.softmax_cross_entropy(y, y_, output_val)
 
     def gradient(self, node, output_grad):
-        grad_A = (softmax_op(node.inputs[0]) + -1 * node.inputs[1])*output_grad
+        grad_A = (softmax_op(node.inputs[0]) + -1 * node.inputs[1]) * output_grad
         grad_B = zeroslike_op(node.inputs[1])
         return [grad_A, grad_B]
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        return (1,)
 
 
 class SoftmaxOp(Op):
@@ -476,6 +551,8 @@ class SoftmaxOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class ReluOp(Op):
@@ -497,6 +574,8 @@ class ReluOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class ReluGradientOp(Op):
@@ -520,6 +599,9 @@ class ReluGradientOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        assert input_shapes[0] == input_shapes[1]
+        return input_shapes[0]
 
 
 # Create global singletons of operators.
@@ -541,6 +623,7 @@ relu_gradient_op = ReluGradientOp()
 
 class Executor(object):
     """Executor computes values for given set of nodes in computation graph."""
+
     def __init__(self, eval_node_list, ctx=None):
         """
         Parameters
@@ -571,6 +654,20 @@ class Executor(object):
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
         """TODO: Your code here"""
+        self.node_to_shape_map = {}
+        for node in self.topo_order:
+            if node in self.node_to_shape_map:
+                continue
+
+            if node in feed_shapes:
+                self.node_to_shape_map[node] = feed_shapes[node]
+            else:
+                input_shpes = []
+                for input_node in node.inputs:
+                    input_shpes.append(self.node_to_shape_map[input_node])
+
+                self.node_to_shape_map[node] = node.op.infer_shape(node, input_shpes)
+
 
     def memory_plan(self, feed_shapes):
         """Allocates ndarray.NDArray for every node except feed_dict nodes.
@@ -590,6 +687,12 @@ class Executor(object):
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
         """TODO: Your code here"""
+        self.node_to_arr_map = {}
+        for node in self.topo_order:
+            if node in feed_shapes:
+                continue
+            if node in self.node_to_shape_map:
+                self.node_to_arr_map[node] = ndarray.empty(self.node_to_shape_map[node], ctx=self.ctx)
 
     def run(self, feed_dict, convert_to_numpy_ret_vals=False):
         """
@@ -602,6 +705,7 @@ class Executor(object):
         -------
         A list of values for nodes in eval_node_list. NDArray or np.ndarray.
         """
+
         def are_feed_shapes_equal(sa, sb):
             if (not isinstance(sa, dict)) or (not isinstance(sb, dict)):
                 return False
@@ -691,6 +795,7 @@ def gradients(output_node, node_list):
     grad_node_list = [node_to_output_grad[node] for node in node_list]
     return grad_node_list
 
+
 ##################
 # Helper Methods #
 ##################
@@ -738,8 +843,8 @@ def broadcast_rule(shape_a, shape_b):
     https://docs.scipy.org/doc/numpy-1.10.0/user/basics.broadcasting.html
     http://eli.thegreenplace.net/2015/broadcasting-arrays-in-numpy/
     """
-    assert(isinstance(shape_a, tuple))
-    assert(isinstance(shape_b, tuple))
+    assert (isinstance(shape_a, tuple))
+    assert (isinstance(shape_b, tuple))
     if len(shape_a) > len(shape_b):
         longer_shape, shorter_shape = shape_a, shape_b
     else:
@@ -752,7 +857,7 @@ def broadcast_rule(shape_a, shape_b):
     output_shape = list(longer_shape)
     for i in range(len(output_shape)):
         assert (shorter_shape[i] == longer_shape[i]) \
-            or (shorter_shape[i] == 1) \
-            or (longer_shape[i] == 1)
+               or (shorter_shape[i] == 1) \
+               or (longer_shape[i] == 1)
         output_shape[i] = max(shorter_shape[i], longer_shape[i])
     return tuple(output_shape)

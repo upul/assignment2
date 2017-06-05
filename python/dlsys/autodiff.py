@@ -217,15 +217,6 @@ class MulOp(Op):
         """Need to handle input_vals[0].shape != input_vals[1].shape"""
         """TODO: Your code here"""
         assert len(input_shapes) == 2
-        # if input_shapes[0] == input_shapes[1]:
-        #     return input_shapes[0]
-        # elif input_shapes[0] == (1,):
-        #     return input_shapes[1]
-        # elif input_shapes[1] == (1,):
-        #     return input_shapes[0]
-        # else:
-        #     raise RuntimeError('invalid dimensions')
-
         if input_shapes[0] == input_shapes[1]:
             return input_shapes[0]
         elif input_shapes[0] == (1,):
@@ -233,7 +224,7 @@ class MulOp(Op):
         elif input_shapes[1] == (1,):
             return input_shapes[0]
         else:
-            print('shape error')
+            raise RuntimeError('invalid dimensions')
 
 
 class MulByConstOp(Op):
@@ -687,12 +678,13 @@ class Executor(object):
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
         """TODO: Your code here"""
-        self.node_to_arr_map = {}
+        if self.node_to_arr_map is None:
+            self.node_to_arr_map = {}
+            
         for node in self.topo_order:
             if node in feed_shapes:
                 continue
-            if node in self.node_to_shape_map:
-                self.node_to_arr_map[node] = ndarray.empty(self.node_to_shape_map[node], ctx=self.ctx)
+            self.node_to_arr_map[node] = ndarray.empty(self.node_to_shape_map[node], ctx=self.ctx)
 
     def run(self, feed_dict, convert_to_numpy_ret_vals=False):
         """
@@ -834,30 +826,30 @@ def sum_node_list(node_list):
     return reduce(add, node_list)
 
 
-def broadcast_rule(shape_a, shape_b):
-    """Return output shape of broadcast shape_a, shape_b.
-    e.g. broadcast_rule((3,2), (4,3,2))
-    returns output_shape = (4,3,2)
-
-    Check out explanations and more examples at
-    https://docs.scipy.org/doc/numpy-1.10.0/user/basics.broadcasting.html
-    http://eli.thegreenplace.net/2015/broadcasting-arrays-in-numpy/
-    """
-    assert (isinstance(shape_a, tuple))
-    assert (isinstance(shape_b, tuple))
-    if len(shape_a) > len(shape_b):
-        longer_shape, shorter_shape = shape_a, shape_b
-    else:
-        longer_shape, shorter_shape = shape_b, shape_a
-    len_diff = len(longer_shape) - len(shorter_shape)
-    for i in range(len_diff):
-        # pad with leading 1s
-        shorter_shape = (1,) + shorter_shape
-    assert len(shorter_shape) == len(longer_shape)
-    output_shape = list(longer_shape)
-    for i in range(len(output_shape)):
-        assert (shorter_shape[i] == longer_shape[i]) \
-               or (shorter_shape[i] == 1) \
-               or (longer_shape[i] == 1)
-        output_shape[i] = max(shorter_shape[i], longer_shape[i])
-    return tuple(output_shape)
+# def broadcast_rule(shape_a, shape_b):
+#     """Return output shape of broadcast shape_a, shape_b.
+#     e.g. broadcast_rule((3,2), (4,3,2))
+#     returns output_shape = (4,3,2)
+# 
+#     Check out explanations and more examples at
+#     https://docs.scipy.org/doc/numpy-1.10.0/user/basics.broadcasting.html
+#     http://eli.thegreenplace.net/2015/broadcasting-arrays-in-numpy/
+#     """
+#     assert (isinstance(shape_a, tuple))
+#     assert (isinstance(shape_b, tuple))
+#     if len(shape_a) > len(shape_b):
+#         longer_shape, shorter_shape = shape_a, shape_b
+#     else:
+#         longer_shape, shorter_shape = shape_b, shape_a
+#     len_diff = len(longer_shape) - len(shorter_shape)
+#     for i in range(len_diff):
+#         # pad with leading 1s
+#         shorter_shape = (1,) + shorter_shape
+#     assert len(shorter_shape) == len(longer_shape)
+#     output_shape = list(longer_shape)
+#     for i in range(len(output_shape)):
+#         assert (shorter_shape[i] == longer_shape[i]) \
+#                or (shorter_shape[i] == 1) \
+#                or (longer_shape[i] == 1)
+#         output_shape[i] = max(shorter_shape[i], longer_shape[i])
+#     return tuple(output_shape)
